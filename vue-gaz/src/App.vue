@@ -3,11 +3,15 @@
     <h1 class="app__title">Поиск совпадений по объектам газификации</h1>
     <div class="app__buttons">
       <el-upload
-        class="upload"
-        :limit="1"
-        :auto-upload="false"
         :on-change="handleChange"
         :on-remove="handleRemove"
+        class="upload"
+        accept=".xlsx, .xls, .csv"
+        :limit="1"
+         :auto-upload="false"
+
+
+
       >
         <el-button type="primary">Выберите файл</el-button>
       </el-upload>
@@ -42,13 +46,11 @@
 <script>
 import * as XLSX from 'xlsx'
 import { toRaw } from 'vue'
-import { UploadFilled } from '@element-plus/icons-vue'
 import { ref } from 'vue'
 import TableComponent from './components/TableComponent.vue'
 
 export default {
   components: {
-    UploadFilled,
     TableComponent,
   },
   data() {
@@ -69,27 +71,71 @@ export default {
     }
   },
   methods: {
-    handleChange(file) {
-      if (!file) return
+    beforeUpload(file) {
+
+      const validTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'text/csv',
+        'application/octet-stream'
+      ];
+
+      const validExtensions = ['.xlsx', '.xls', '.csv'];
+
+      const fileExtension = file.raw.name.split('.').pop().toLowerCase();
+
+      if (
+        !validTypes.includes(file.raw.type) ||
+        !validExtensions.includes(`.${fileExtension}`)
+      ) {
+        this.$message.error(
+          'Недопустимый формат файла. Разрешены только .xlsx, .xls и .csv'
+        );
+        return false;
+      } else return true;
+
+    },
+    readExcelFile(file) {
       const reader = new FileReader()
       reader.onload = (e) => {
-        const data = new Uint8Array(e.target.result)
-        const workbook = XLSX.read(data, { type: 'array' })
+        try {
+          const data = new Uint8Array(e.target.result)
+          const workbook = XLSX.read(data, { type: 'array' })
 
-        // Берем первую страницу
-        const firstSheetName = workbook.SheetNames[0]
-        const worksheet = workbook.Sheets[firstSheetName]
+          const firstSheetName = workbook.SheetNames[0]
+          const worksheet = workbook.Sheets[firstSheetName]
 
-        // Конвертируем в JSON
-        const jsonData = XLSX.utils.sheet_to_json(worksheet)
+          const jsonData = XLSX.utils.sheet_to_json(worksheet)
 
-        if (jsonData.length) {
-          this.headers = Object.keys(jsonData[0])
-          this.tableData = jsonData
-          this.searchForMatches()
+          if (jsonData.length) {
+            const requiredFields = ['id', 'location', 'address', 'code'];
+            const actualFields = Object.keys(jsonData[0]);
+
+            if (!requiredFields.every(field => actualFields.includes(field))) {
+              this.$message.error('Файл не содержит всех необходимых полей: id, location, address, code');
+              return;
+            }
+            this.headers = Object.keys(jsonData[0])
+            this.tableData = jsonData
+            this.searchForMatches()
+          }
+        } catch (error) {
+          console.error('Ошибка обработки файла:', error)
+          this.$message.error('Ошибка при чтении файла. Проверьте его содержимое.')
         }
       }
+
+      reader.onerror = () => {
+        this.$message.error('Ошибка при чтении файла')
+      }
+
       reader.readAsArrayBuffer(file.raw)
+    },
+
+    handleChange(file) {
+      if (this.beforeUpload(file)) {
+        this.readExcelFile(file);
+      }
     },
     handleRemove() {
       this.headers = []
@@ -113,7 +159,7 @@ export default {
         map.get(location)?.push({ id: element.id, address: element.address, code: element.code })
       })
 
-      map.forEach((value, key, map) => {
+      map.forEach((value, key) => {
         const mapAddressGroups = new Map()
         const mapCodeGroups = new Map()
 
@@ -131,7 +177,7 @@ export default {
                   .split(/[, ]+/)
                   .map((part) => part.trim())
                 if (entries.length === 3) {
-                  const [_, street, house] = entries
+                  const [, street, house] = entries
                   const key = `${street}-${house}`
                   if (!mapAddressGroups.has(key)) {
                     mapAddressGroups.set(key, [])
@@ -144,7 +190,7 @@ export default {
                   mapNotValidAddress.get(key)?.push(item)
                 }
               } catch (err) {
-                console.log('error item', item)
+                console.log('error item', err)
               }
             } else {
               arrHasNotKeyOrValue.push(item.id)
@@ -243,14 +289,17 @@ body {
   font-style: normal;
   font-size: 16px;
 }
+
 .app__title {
   text-align: center;
   font-size: 24px;
 }
+
 .app__subtitle {
   text-align: center;
   font-size: 18px;
 }
+
 .app__buttons {
   display: flex;
   align-items: center;
@@ -260,6 +309,7 @@ body {
 .upload {
   width: 350px;
 }
+
 .select {
   width: 240px;
   font-family: 'Inter', sans-serif;

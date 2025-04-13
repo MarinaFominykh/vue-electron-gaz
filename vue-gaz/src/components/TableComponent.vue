@@ -7,6 +7,7 @@
         </tr>
       </thead>
       <tbody>
+
         <tr
           class="tr__danger"
           v-for="(row, index) in tableData"
@@ -40,7 +41,7 @@ export default {
   },
   data() {
     return {
-      colorMap: {}, // Объект для хранения цветов для пар
+      colorMap: {},
     }
   },
   methods: {
@@ -53,17 +54,17 @@ export default {
       return color
     },
     getCellColor(key) {
-      // Проверяем, есть ли уже цвет для этой ячейки
+
       for (const pair of this.matchObjectIds) {
         if (pair.includes(key)) {
-          // Если пара найдена, возвращаем цвет для этой пары
+
           if (!this.colorMap[pair]) {
-            this.colorMap[pair] = this.getRandomColor() // Генерируем новый цвет, если его нет
+            this.colorMap[pair] = this.getRandomColor()
           }
           return this.colorMap[pair]
         }
       }
-      return 'transparent' // Возвращаем прозрачный цвет, если пара не найдена
+      return 'transparent'
     },
   },
 }
@@ -76,20 +77,23 @@ export default {
   overflow: auto;
   margin: 0 auto;
 }
+
 .table {
   border-collapse: collapse;
   width: 100%;
   margin-top: 20px;
 }
+
 .th,
 .td {
   border: 1px solid #ddd;
   padding: 8px;
   text-align: left;
 }
+
 .th {
   background-color: #f2f2f2;
 }
-.tr__danger {
-}
+
+.tr__danger {}
 </style>
